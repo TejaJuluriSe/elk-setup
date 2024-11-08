@@ -8,12 +8,19 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=123456myp
+      - xpack.security.authc.api_key.enabled=true  # Enable API key authentication
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTIC_PASSWORD=logstashpassword
       - network.host=0.0.0.0  # Add this line to bind to all network interfaces
     networks:
       - elk_network
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://elasticsearch:9200"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
    
 
   kibana:
@@ -27,7 +34,7 @@ services:
       - XPACK_MONITORING_COLLECTION_ENABLED=true
       - XPACK_SECURITY_ENABLED=true
       - ELASTICSEARCH_USERNAME=elastic
-      - ELASTICSEARCH_PASSWORD="123456myp"
+      - ELASTICSEARCH_PASSWORD=logstashpassword
     depends_on:
       - elasticsearch
     networks:
@@ -39,6 +46,10 @@ services:
       - "5044:5044"  # Port for Logstash Beats input
     volumes:
       - ./elk-config/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf  # Path for Logstash pipeline configuration
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200/
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=logstashpassword
     depends_on:
       - elasticsearch
     networks:
@@ -52,7 +63,7 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - elasticsearch
+      - logstash
     networks:
       - elk_network
 
@@ -63,3 +74,66 @@ volumes:
 networks:
   elk_network:
     driver: bridge
+
+# version: '3.6'
+# services:
+#   eslogs:
+#     image: elasticsearch:7.16.2
+#     container_name: eslogs
+#     restart: always
+#     volumes:
+#      - elastic_data:/usr/share/elasticsearch/data/
+#     environment:
+#       - discovery.type=single-node
+#       - xpack.security.enabled=true
+#       - ELASTICSEARCH_USERNAME=elastic
+#       - ELASTIC_PASSWORD=logstashpassword
+#       - network.host=0.0.0.0  # Add this line to bind to all network interfaces    
+#     ports:
+#       - '9200:9200'
+#       - '9300:9300'
+#     networks:
+#       - elk
+
+#   Logstash:
+#     image: logstash:7.16.2
+#     container_name: logstash
+#     restart: always
+#     volumes:
+#     - ./elk-config/logstash/logstash.conf/:/logstash_dir/logstash.conf
+#     command: logstash -f /logstash_dir/logstash.conf 
+#     depends_on:
+#       - eslogs
+#     ports:
+#     - '9600:9600'
+#     environment:
+#       LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+#       xpack.monitoring.elasticsearch.hosts: http://eslogs:9200
+#       ELASTICSEARCH_HOST: http://eslogs:9200
+#       ELASTICSEARCH_USERNAME: "elastic"
+#       ELASTICSEARCH_PASSWORD: "logstashpassword"  
+#     networks:
+#       - elk
+
+#   Kibana:
+#     image: kibana:7.16.2
+#     container_name: kibana
+#     restart: always       
+#     ports:
+#     - '5601:5601'
+#     environment:
+#       - ELASTICSEARCH_URL=http://eslogs:9200  
+#       - XPACK_MONITORING_ENABLED=true
+#       - XPACK_MONITORING_COLLECTION_ENABLED=true
+#       - XPACK_SECURITY_ENABLED=true
+#       - ELASTICSEARCH_USERNAME=elastic
+#       - ELASTICSEARCH_PASSWORD=logstashpassword
+#     depends_on:
+#       - eslogs  
+#     networks:
+#       - elk
+# volumes:
+#   elastic_data: {}
+
+# networks:
+#   elk:
